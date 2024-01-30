@@ -24,7 +24,7 @@ namespace mcjp {
         // interface
     };
 
-    using Result = std::variant<Object, std::vector<Object>>;
+    using Result = std::variant<Object*, std::vector<Object*>>;
 
     Result load(const std::string& filename);
     Result parse(const std::string& str);

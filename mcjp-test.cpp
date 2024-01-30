@@ -22,6 +22,18 @@ int main() {
 
     
     mcjp::Result obj = mcjp::load("test.json");
+    mcjp::Object oj1 = std::get<std::vector<mcjp::Object>>(obj)[0];
+    mcjp::Object oj2 = std::get<std::vector<mcjp::Object>>(obj)[1];
+
+    for (auto p : oj1.contents) {
+        std::cout << p.first << std::endl;
+        if (p.first == "child") {
+            std::cout << *std::get<mcjp::Object*>(p.second) << std::endl;
+        }
+    }
+
+    // std::cout << "\n" << oj1 << std::endl;
+    // std::cout << "\n" << oj2 << std::endl;
 
     return 0;
 }

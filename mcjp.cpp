@@ -4,7 +4,7 @@ namespace mcjp {
     void filter(const std::string& str, std::string& res);
 
     Result buildObject(const std::string& str, int startIdx, int endIdx) {
-        Object res;
+        Object* res = new Object();
         // we need to find the boundary of each pair, str is start with '{' and end with '}'
         int previdx = startIdx;
         int lvl = 0;
@@ -38,18 +38,19 @@ namespace mcjp {
                     return res;
                 }
                 std::string key = pair.substr(1, colonIdx-2);   // key is always without quotes
-                std::string value = pair.substr(colonIdx + 1, pair.size() - colonIdx - 1);
+                std::string value = pair.substr(colonIdx + 1, pair.size() - colonIdx - 2);  // make value without ','
 
                 if (value[0] == '\"') {
                     // it's a string
-                    res.contents[key] = value.substr(1, value.size() - 2);
-                    std::cout << "Key: " << key << " Value: " << res.contents[key] << std::endl;
+                    std::string vv = value.substr(1, value.size() - 2);
+                    res->contents[key] = vv;
+                    std::cout << "Key: " << key << " Value: " << vv  << std::endl;
                 }
                 else if (value[0] == '{') {
                     // it's an object
-                    Object obj = std::get<Object>(buildObject(value, 0, value.size() - 1));
-                    res.contents[key] = &obj;
-                    std::cout << "Key: " << key << " Value: " << res.contents[key] << std::endl;
+                    Object* obj = std::get<Object*>(buildObject(value, 0, value.size() - 1));
+                    res->contents[key] = obj;
+                    std::cout << "Key: " << key << " Value: " << *obj << std::endl;
                 }
                 // else if (value[0] == '[') {
                 //     // it's a vector
@@ -59,13 +60,13 @@ namespace mcjp {
                     // it's a number
                     try {
                         int intVal = std::stoi(value);
-                        res.contents[key] = intVal;
+                        res->contents[key] = intVal;
                         std::cout << "Key: " << key << " Value: " << intVal << std::endl;
                     }
                     catch (std::invalid_argument& ex) {
                         try {
                             double doubleVal = std::stod(value);
-                            res.contents[key] = doubleVal;
+                            res->contents[key] = doubleVal;
                             std::cout << "Key: " << key << " Value: " << doubleVal << std::endl;
                         }
                         catch (std::invalid_argument& ex) {
@@ -79,12 +80,62 @@ namespace mcjp {
         }
 
         // due to no-end-comma, we need to handle the last pair
+        std::string pair = str.substr(previdx+1, endIdx - previdx);
+        // we need to find the boundary of key and value
+        int colonIdx = -1;
+        for (size_t j = 0; j < pair.size(); j++) {
+            if (pair[j] == ':') {
+                colonIdx = j;
+                break;
+            }
+        }
+        if (colonIdx == -1) {
+            // error
+            std::cout << "Error: no colon found in pair: " << pair << std::endl;
+            return res;
+        }
+        std::string key = pair.substr(1, colonIdx-2);   // key is always without quotes
+        std::string value = pair.substr(colonIdx + 1, pair.size() - colonIdx - 2);  // make value without ','
+        if (value[0] == '\"') {
+            // it's a string
+            std::string vv = value.substr(1, value.size() - 2);
+            res->contents[key] = vv;
+            std::cout << "Key: " << key << " Value: " << vv  << std::endl;
+        }
+        else if (value[0] == '{') {
+            // it's an object
+            Object* obj = std::get<Object*>(buildObject(value, 0, value.size() - 1));
+            res->contents[key] = obj;
+            std::cout << "Key: " << key << " Value: " << *obj << std::endl;
+        }
+        // else if (value[0] == '[') {
+        //     // it's a vector
+        //     res.contents[key] = std::get<std::vector<Object>>(buildVector(value, 0, value.size() - 1));
+        // }
+        else {
+            // it's a number
+            try {
+                int intVal = std::stoi(value);
+                res->contents[key] = intVal;
+                std::cout << "Key: " << key << " Value: " << intVal << std::endl;
+            }
+            catch (std::invalid_argument& ex) {
+                try {
+                    double doubleVal = std::stod(value);
+                    res->contents[key] = doubleVal;
+                    std::cout << "Key: " << key << " Value: " << doubleVal << std::endl;
+                }
+                catch (std::invalid_argument& ex) {
+                    std::cout << "Error: invalid number: " << value << std::endl;
+                }
+            }
+        }
 
         return res;
     }
 
     Result buildVector(const std::string& str, int startIdx, int endIdx) {
-        std::vector<Object> res;
+        std::vector<Object*> res;
         // we need to find the boundary of each Object, str is start with '[' and end with ']'
         int previdx = startIdx;
         int lvl = 0;
@@ -99,7 +150,7 @@ namespace mcjp {
                 --lvl;
                 if (lvl == 0) {
                     std::cout << "From " << previdx << " to " << i << std::endl;
-                    Object cur = std::get<Object>(buildObject(str, previdx, i));   // I know it's always an Object
+                    Object* cur = std::get<Object*>(buildObject(str, previdx, i));   // I know it's always an Object
                     res.push_back(cur);
                 }
             }

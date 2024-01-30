@@ -1,5 +1,8 @@
 [{
     "name": "Michael Chan",
+    "child": {
+        "bname": "Faker"
+    },
     "Age" : 21
 },
 {
