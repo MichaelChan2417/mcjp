@@ -6,18 +6,19 @@ namespace mcjp {
     Result buildObject(const std::string& str, int startIdx, int endIdx) {
         Object* res = new Object();
         // we need to find the boundary of each pair, str is start with '{' and end with '}'
+        // std::cout << "POOOOOOOOOO" << str.substr(startIdx, endIdx - startIdx + 1) << std::endl;
         int previdx = startIdx;
         int lvl = 0;
         bool in_string = false;
-        for (int i = startIdx; i <= endIdx; i++) {
+        for (int i = startIdx+1; i < endIdx; i++) {
             if (str[i] == '"' || str[i] == '\'') {
                 in_string = !in_string;
                 continue;
             }
-            if (str[i] == '[') {
+            if (str[i] == '[' || str[i] == '{') {
                 ++lvl;
             }
-            else if (str[i] == ']') {
+            else if (str[i] == ']' || str[i] == '}') {
                 --lvl;
             }
 
@@ -39,35 +40,76 @@ namespace mcjp {
                 }
                 std::string key = pair.substr(1, colonIdx-2);   // key is always without quotes
                 std::string value = pair.substr(colonIdx + 1, pair.size() - colonIdx - 2);  // make value without ','
-
+                // std::cout << "PREV key: " << key << " value: " << value << std::endl;
                 if (value[0] == '\"') {
                     // it's a string
                     std::string vv = value.substr(1, value.size() - 2);
+                    // std::cout << "key: " << key << " value: " << vv << std::endl;
                     res->contents[key] = vv;
-                    std::cout << "Key: " << key << " Value: " << vv  << std::endl;
                 }
                 else if (value[0] == '{') {
                     // it's an object
                     Object* obj = std::get<Object*>(buildObject(value, 0, value.size() - 1));
                     res->contents[key] = obj;
-                    std::cout << "Key: " << key << " Value: " << *obj << std::endl;
                 }
-                // else if (value[0] == '[') {
-                //     // it's a vector
-                //     res.contents[key] = std::get<std::vector<Object>>(buildVector(value, 0, value.size() - 1));
-                // }
+                else if (value[0] == '[') {
+                    // it's a vector
+                    if (value[1] == '\"') {
+                        // std::vector < std::string> vec;
+                        // TODO: this case seems not possible, need check
+                        std::cout << "Error: vector of string not supported yet" << std::endl;
+                    }
+                    else if (value[1] == '{') {
+                        // TODO: this case seems not possible, need check
+                        std::cout << "Error: vector of object not supported yet" << std::endl;
+                    }
+                    else {
+                        // it's a number, but could be int or double
+                        value = value.substr(1, value.size() - 2);  // remove '[' and ']'
+                        if (value.find('.') != std::string::npos) {
+                            // it's a double
+                            std::vector<double> nvec;
+                            std::stringstream ss(value);
+                            std::string token;
+                            for (int i = 0; std::getline(ss, token, ','); i++) {
+                                try {
+                                    double doubleVal = std::stod(token);
+                                    nvec.push_back(doubleVal);
+                                }
+                                catch (std::invalid_argument& ex) {
+                                    std::cout << "Error: invalid number: " << token << std::endl;
+                                }
+                            }
+                            res->contents[key] = nvec;
+                        }
+                        else {
+                            // it's an int
+                            std::vector<int> nvec;
+                            std::stringstream ss(value);
+                            std::string token;
+                            for (int i = 0; std::getline(ss, token, ','); i++) {
+                                try {
+                                    int intVal = std::stoi(token);
+                                    nvec.push_back(intVal);
+                                }
+                                catch (std::invalid_argument& ex) {
+                                    std::cout << "Error: invalid number: " << token << std::endl;
+                                }
+                            }
+                            res->contents[key] = nvec;
+                        }
+                    }
+                }
                 else {
                     // it's a number
                     try {
                         int intVal = std::stoi(value);
                         res->contents[key] = intVal;
-                        std::cout << "Key: " << key << " Value: " << intVal << std::endl;
                     }
                     catch (std::invalid_argument& ex) {
                         try {
                             double doubleVal = std::stod(value);
                             res->contents[key] = doubleVal;
-                            std::cout << "Key: " << key << " Value: " << doubleVal << std::endl;
                         }
                         catch (std::invalid_argument& ex) {
                             std::cout << "Error: invalid number: " << value << std::endl;
@@ -80,7 +122,7 @@ namespace mcjp {
         }
 
         // due to no-end-comma, we need to handle the last pair
-        std::string pair = str.substr(previdx+1, endIdx - previdx);
+        std::string pair = str.substr(previdx + 1, endIdx - previdx);
         // we need to find the boundary of key and value
         int colonIdx = -1;
         for (size_t j = 0; j < pair.size(); j++) {
@@ -100,30 +142,70 @@ namespace mcjp {
             // it's a string
             std::string vv = value.substr(1, value.size() - 2);
             res->contents[key] = vv;
-            std::cout << "Key: " << key << " Value: " << vv  << std::endl;
         }
         else if (value[0] == '{') {
             // it's an object
             Object* obj = std::get<Object*>(buildObject(value, 0, value.size() - 1));
             res->contents[key] = obj;
-            std::cout << "Key: " << key << " Value: " << *obj << std::endl;
         }
-        // else if (value[0] == '[') {
-        //     // it's a vector
-        //     res.contents[key] = std::get<std::vector<Object>>(buildVector(value, 0, value.size() - 1));
-        // }
+        else if (value[0] == '[') {
+            // it's a vector
+            if (value[1] == '\"') {
+                // std::vector < std::string> vec;
+                // TODO: this case seems not possible, need check
+                std::cout << "Error: vector of string not supported yet" << std::endl;
+            }
+            else if (value[1] == '{') {
+                // TODO: this case seems not possible, need check
+                std::cout << "Error: vector of object not supported yet" << std::endl;
+            }
+            else {
+                // it's a number, but could be int or double
+                value = value.substr(1, value.size() - 2);  // remove '[' and ']'
+                if (value.find('.') != std::string::npos) {
+                    // it's a double
+                    std::vector<double> nvec;
+                    std::stringstream ss(value);
+                    std::string token;
+                    for (int i = 0; std::getline(ss, token, ','); i++) {
+                        try {
+                            double doubleVal = std::stod(token);
+                            nvec.push_back(doubleVal);
+                        }
+                        catch (std::invalid_argument& ex) {
+                            std::cout << "Error: invalid number: " << token << std::endl;
+                        }
+                    }
+                    res->contents[key] = nvec;
+                }
+                else {
+                    // it's an int
+                    std::vector<int> nvec;
+                    std::stringstream ss(value);
+                    std::string token;
+                    for (int i = 0; std::getline(ss, token, ','); i++) {
+                        try {
+                            int intVal = std::stoi(token);
+                            nvec.push_back(intVal);
+                        }
+                        catch (std::invalid_argument& ex) {
+                            std::cout << "Error: invalid number: " << token << std::endl;
+                        }
+                    }
+                    res->contents[key] = nvec;
+                }
+            }
+        }
         else {
             // it's a number
             try {
                 int intVal = std::stoi(value);
                 res->contents[key] = intVal;
-                std::cout << "Key: " << key << " Value: " << intVal << std::endl;
             }
             catch (std::invalid_argument& ex) {
                 try {
                     double doubleVal = std::stod(value);
                     res->contents[key] = doubleVal;
-                    std::cout << "Key: " << key << " Value: " << doubleVal << std::endl;
                 }
                 catch (std::invalid_argument& ex) {
                     std::cout << "Error: invalid number: " << value << std::endl;
@@ -149,7 +231,6 @@ namespace mcjp {
             else if (str[i] == '}') {
                 --lvl;
                 if (lvl == 0) {
-                    std::cout << "From " << previdx << " to " << i << std::endl;
                     Object* cur = std::get<Object*>(buildObject(str, previdx, i));   // I know it's always an Object
                     res.push_back(cur);
                 }
@@ -177,6 +258,10 @@ namespace mcjp {
         std::stringstream buffer;
         buffer << in.rdbuf();
         std::string res = buffer.str();
+        // res need to be inserted to make first "s72-v1" => {"s72-v1" : 0}
+        res.insert(1, "{");
+        res.insert(10, ":0}");
+        std::cout << res.substr(0, 20) << std::endl;
         return parse(res);
     }
     
@@ -202,6 +287,21 @@ namespace mcjp {
                 res += ch;
             }
         }
+    }
+
+    void Object::cleanup() {
+        for (auto& pair : contents) {
+            if (std::holds_alternative<Object*>(pair.second)) {
+                std::get<Object*>(pair.second)->cleanup();
+            }
+            if (std::holds_alternative<std::vector<Object*>>(pair.second)) {
+                for (auto& obj : std::get<std::vector<Object*>>(pair.second)) {
+                    obj->cleanup();
+                }
+            }
+        }
+        contents.clear();
+        delete this;
     }
 
     void printValue(std::ostream& os, const int& value) {

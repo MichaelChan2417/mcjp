@@ -1,9 +1,9 @@
 [{
+    "age": [1,2,3,4],
     "name": "Michael Chan",
     "child": {
         "bname": "Faker"
-    },
-    "Age" : 21
+    }
 },
 {
     "abc": 1,

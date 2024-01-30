@@ -22,6 +22,7 @@ namespace mcjp {
         Object() = default;
 
         // interface
+        void cleanup();
     };
 
     using Result = std::variant<Object*, std::vector<Object*>>;
