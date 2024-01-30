@@ -3,20 +3,112 @@
 namespace mcjp {
     void filter(const std::string& str, std::string& res);
 
-    Object buildVector(const std::string& str, int startIdx, int endIdx) {
+    Result buildObject(const std::string& str, int startIdx, int endIdx) {
         Object res;
-        res.type = VECTOR;
-        // we need to find the boundary of 
+        // we need to find the boundary of each pair, str is start with '{' and end with '}'
+        int previdx = startIdx;
+        int lvl = 0;
+        bool in_string = false;
+        for (int i = startIdx; i <= endIdx; i++) {
+            if (str[i] == '"' || str[i] == '\'') {
+                in_string = !in_string;
+                continue;
+            }
+            if (str[i] == '[') {
+                ++lvl;
+            }
+            else if (str[i] == ']') {
+                --lvl;
+            }
+
+            if (str[i] == ',' && lvl == 0 && !in_string) {
+                // we find a pair range (previdx, i)
+                std::string pair = str.substr(previdx+1, i - previdx);
+                // we need to find the boundary of key and value
+                int colonIdx = -1;
+                for (size_t j = 0; j < pair.size(); j++) {
+                    if (pair[j] == ':') {
+                        colonIdx = j;
+                        break;
+                    }
+                }
+                if (colonIdx == -1) {
+                    // error
+                    std::cout << "Error: no colon found in pair: " << pair << std::endl;
+                    return res;
+                }
+                std::string key = pair.substr(1, colonIdx-2);   // key is always without quotes
+                std::string value = pair.substr(colonIdx + 1, pair.size() - colonIdx - 1);
+
+                if (value[0] == '\"') {
+                    // it's a string
+                    res.contents[key] = value.substr(1, value.size() - 2);
+                    std::cout << "Key: " << key << " Value: " << res.contents[key] << std::endl;
+                }
+                else if (value[0] == '{') {
+                    // it's an object
+                    Object obj = std::get<Object>(buildObject(value, 0, value.size() - 1));
+                    res.contents[key] = &obj;
+                    std::cout << "Key: " << key << " Value: " << res.contents[key] << std::endl;
+                }
+                // else if (value[0] == '[') {
+                //     // it's a vector
+                //     res.contents[key] = std::get<std::vector<Object>>(buildVector(value, 0, value.size() - 1));
+                // }
+                else {
+                    // it's a number
+                    try {
+                        int intVal = std::stoi(value);
+                        res.contents[key] = intVal;
+                        std::cout << "Key: " << key << " Value: " << intVal << std::endl;
+                    }
+                    catch (std::invalid_argument& ex) {
+                        try {
+                            double doubleVal = std::stod(value);
+                            res.contents[key] = doubleVal;
+                            std::cout << "Key: " << key << " Value: " << doubleVal << std::endl;
+                        }
+                        catch (std::invalid_argument& ex) {
+                            std::cout << "Error: invalid number: " << value << std::endl;
+                        }
+                    }
+                }
+
+                previdx = i;
+            }
+        }
+
+        // due to no-end-comma, we need to handle the last pair
+
         return res;
     }
 
-    Object buildObject(const std::string& str, int startIdx, int endIdx) {
-        Object res;
-        res.type = SINGLE;
-        return res; 
+    Result buildVector(const std::string& str, int startIdx, int endIdx) {
+        std::vector<Object> res;
+        // we need to find the boundary of each Object, str is start with '[' and end with ']'
+        int previdx = startIdx;
+        int lvl = 0;
+        for (int i = startIdx; i <= endIdx; i++) {
+            if (str[i] == '{') {
+                if (lvl == 0) {
+                    previdx = i;
+                }
+                ++lvl;
+            }
+            else if (str[i] == '}') {
+                --lvl;
+                if (lvl == 0) {
+                    std::cout << "From " << previdx << " to " << i << std::endl;
+                    Object cur = std::get<Object>(buildObject(str, previdx, i));   // I know it's always an Object
+                    res.push_back(cur);
+                }
+            }
+        }
+        
+        return res;
     }
 
-    Object parse(const std::string& str) {
+    Result parse(const std::string& str) {
         std::string res;
         // filter out unnecessary spaces
         filter(str, res);
@@ -29,7 +121,7 @@ namespace mcjp {
         }
     }
 
-    Object parse(const std::ifstream& in) {
+    Result parse(const std::ifstream& in) {
         // we read in to a string, then we do the parse
         std::stringstream buffer;
         buffer << in.rdbuf();
@@ -37,7 +129,7 @@ namespace mcjp {
         return parse(res);
     }
     
-    Object load(const std::string& filename) {
+    Result load(const std::string& filename) {
         std::ifstream in(filename, std::ios::binary);
         return parse(in);
     }
@@ -61,31 +153,39 @@ namespace mcjp {
         }
     }
 
-    std::ostream& operator<<(std::ostream& os, const Object::Data& data) {
-        std::visit([&os](const auto& value) {
-            if constexpr (std::is_same_v<Object*, std::decay_t<decltype(value)>>) {
-                os << *value;
-            } else {
-                os << value;
-            }
-        }, data);
-        return os;
+    void printValue(std::ostream& os, const int& value) {
+        os << value;
+    }
+    void printValue(std::ostream& os, const double& value) {
+        os << value;
+    }
+    void printValue(std::ostream& os, const std::string& value) {
+        os << value;
+    }
+    void printValue(std::ostream& os, const Object* value) {
+        os << *value;
+    }
+    void printValue(std::ostream& os, std::monostate) {
+        os << "null";
+    }
+
+    template <typename T>
+    void printValue(std::ostream& os, const std::vector<T>& value) {
+        os << "[";
+        for (const auto& element : value) {
+            os << element << ",";
+        }
+        os << "]";
     }
 
     std::ostream& operator<<(std::ostream& os, const Object& obj) {
-        if (obj.type == SINGLE) {
-            os << "{";
-            for (auto p : obj.contents) {
-                os << p.first << ": " << p.second << ", ";
-            }
-            os << "}";
-        } else {
-            os << "[";
-            for (auto p : obj.vecContents) {
-                os << *p << ", ";
-            }
-            os << "]";
+        os << "{";
+        for (const auto& pair : obj.contents) {
+            os << pair.first << ": ";
+            std::visit([&os](const auto& value) { printValue(os, value); }, pair.second);
+            os << ", ";
         }
+        os << "}";
         return os;
     }
 

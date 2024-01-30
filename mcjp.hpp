@@ -7,31 +7,33 @@
 #include <fstream>
 #include <sstream>
 #include <variant>
+#include <stdexcept>
 
 namespace mcjp {
-
-    enum ObjectType {
-        SINGLE,
-        VECTOR
-    };
-
     struct Object {
-        using Data = std::variant<int, double, std::string, Object*, 
-                            std::vector<int>, std::vector<std::string>, std::vector<double>>;
+        using Data = std::variant<int, double, std::string, Object*,
+            std::vector<int>, std::vector<std::string>, std::vector<double>,
+            std::vector<Object*>, std::monostate>;
 
         // internals
-        ObjectType type;
         std::unordered_map < std::string, Data > contents;
-        std::vector<Object*> vecContents;
 
         // constructor
-        Object() : type(SINGLE) {};
+        Object() = default;
 
         // interface
     };
 
+    using Result = std::variant<Object, std::vector<Object>>;
+
+    Result load(const std::string& filename);
+    Result parse(const std::string& str);
+
+    // below should be hide after debug
+    Result buildObject(const std::string& str, int startIdx, int endIdx);
+    Result buildVector(const std::string& str, int startIdx, int endIdx);
+    void filter(const std::string& str, std::string& res);
+
     std::ostream& operator<<(std::ostream& os, const Object& obj);
-    Object load(const std::string& filename);
-    Object parse(const std::string& str);
 
 } // namespace mcjp

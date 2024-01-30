@@ -1,4 +1,9 @@
-{
+[{
     "name": "Michael Chan",
     "Age" : 21
+},
+{
+    "abc": 1,
+    "bcd":2
 }
+]
